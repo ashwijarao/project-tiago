@@ -1,0 +1,16 @@
+<launch>
+  <node pkg=""
+        type="collection_goal_runner.py"
+        name="collection_goal_runner"
+        output="screen">
+
+    <param name="target_frame" value="map"/>
+
+    
+    <param name="goal_x" value="0.0"/>
+    <param name="goal_y" value="0.0"/>
+    <param name="goal_yaw" value="0.0"/>
+
+    <param name="timeout_seconds" value="120.0"/>
+  </node>
+</launch>
