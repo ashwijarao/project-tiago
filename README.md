@@ -10,10 +10,10 @@ Improvisation Tasks to be done
 6. precision on collection point and home location cordinates 
 
 remaining tasks to be done
-face detection
-face recognition
-person recognition
-speech to text - from laptop(ask to follow me)
-follow the person even by looking at the back (can be implemented maybe by using person recognition)
-stop when user tells to stop by speech
-return to home from delivery point
+1. face detection
+2. face recognition
+3. person recognition
+4. speech to text - from laptop(ask to follow me)
+5. follow the person even by looking at the back (can be implemented maybe by using person recognition)
+6. stop when user tells to stop by speech
+7. return to home from delivery point
