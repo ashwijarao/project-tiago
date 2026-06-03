@@ -16,8 +16,16 @@ cat > launch/follow_known_camera.launch <<'EOF'
         <param name="target_person" value="Viheet" />
 
         <!-- Recognition -->
-        <param name="match_threshold" value="55.0" />
-        <param name="required_confirmations" value="3" />
+        <param name="match_threshold" value="60.0" />
+        <param name="required_confirmations" value="2" />
+
+        <!-- Face detection sensitivity -->
+        <!-- Lower scale_factor = finds faces more reliably (slower) -->
+        <!-- Lower min_neighbors = more sensitive (more false positives) -->
+        <!-- Lower min_face_size = finds smaller/farther faces -->
+        <param name="detection_scale_factor" value="1.05" />
+        <param name="detection_min_neighbors" value="2" />
+        <param name="detection_min_face_size" value="20" />
 
         <!-- Movement -->
         <param name="max_forward_speed" value="0.10" />
