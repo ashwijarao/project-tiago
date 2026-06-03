@@ -38,6 +38,14 @@ class FollowKnownCamera:
         self.required_confirmations = rospy.get_param("~required_confirmations", 3)
         self.confirm_count = 0
 
+        # Haar cascade detection sensitivity
+        # Lower scale_factor = more sensitive but slower (try 1.05)
+        # Lower min_neighbors = more detections but more false positives (try 2)
+        # Lower min_face_size = detects smaller/farther faces (try 20)
+        self.detection_scale_factor = rospy.get_param("~detection_scale_factor", 1.05)
+        self.detection_min_neighbors = rospy.get_param("~detection_min_neighbors", 2)
+        self.detection_min_face_size = rospy.get_param("~detection_min_face_size", 20)
+
         # Movement
         self.max_forward_speed = rospy.get_param("~max_forward_speed", 0.10)
         self.min_forward_speed = rospy.get_param("~min_forward_speed", 0.035)
@@ -149,7 +157,7 @@ class FollowKnownCamera:
 
             gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
             faces = self.face_cascade.detectMultiScale(
-                gray, scaleFactor=1.10, minNeighbors=3, minSize=(30, 30)
+                gray, scaleFactor=1.05, minNeighbors=2, minSize=(20, 20)
             )
             if len(faces) == 0:
                 rospy.logwarn("No face detected in saved image: {}".format(file))
@@ -161,6 +169,7 @@ class FollowKnownCamera:
             self.known_names.append(name)
             rospy.loginfo("Loaded face: {} from {}".format(name, file))
 
+   
     def compare_face(self, detected_face_gray):
         """Return (best_name, best_score). Lower score = closer match."""
         processed = self.preprocess_face(detected_face_gray)
@@ -189,6 +198,7 @@ class FollowKnownCamera:
                     best_box = (x, y, w, h, score)
         return best_box  # None if Viheet not found
 
+    
     def scan_callback(self, scan):
         min_dist = 99.0
         for i, r in enumerate(scan.ranges):
@@ -268,6 +278,7 @@ class FollowKnownCamera:
         self.current_twist.linear.y = 0.0
         self.cmd_pub.publish(self.current_twist)
 
+    
     def image_callback(self, msg):
         try:
             frame = self.bridge.imgmsg_to_cv2(msg, "bgr8")
@@ -280,9 +291,13 @@ class FollowKnownCamera:
 
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         faces = self.face_cascade.detectMultiScale(
-            gray, scaleFactor=1.08, minNeighbors=3, minSize=(30, 30)
+            gray,
+            scaleFactor=self.detection_scale_factor,
+            minNeighbors=self.detection_min_neighbors,
+            minSize=(self.detection_min_face_size, self.detection_min_face_size)
         )
 
+        
         if self.state == "SEARCHING":
             self.target_visible = False
             self.target_twist = Twist()  # Stay still while searching
