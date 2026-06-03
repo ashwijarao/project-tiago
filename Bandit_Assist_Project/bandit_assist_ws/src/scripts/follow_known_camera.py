@@ -100,10 +100,6 @@ class FollowKnownCamera:
         rospy.loginfo("Velocity topic: {}".format(self.cmd_vel_topic))
         rospy.loginfo("Known names   : {}".format(self.known_names))
 
-    # ------------------------------------------------------------------
-    # Setup helpers
-    # ------------------------------------------------------------------
-
     def load_face_detector(self):
         possible_paths = [
             "/usr/share/opencv4/haarcascades/haarcascade_frontalface_default.xml",
@@ -165,10 +161,6 @@ class FollowKnownCamera:
             self.known_names.append(name)
             rospy.loginfo("Loaded face: {} from {}".format(name, file))
 
-    # ------------------------------------------------------------------
-    # Recognition
-    # ------------------------------------------------------------------
-
     def compare_face(self, detected_face_gray):
         """Return (best_name, best_score). Lower score = closer match."""
         processed = self.preprocess_face(detected_face_gray)
@@ -197,10 +189,6 @@ class FollowKnownCamera:
                     best_box = (x, y, w, h, score)
         return best_box  # None if Viheet not found
 
-    # ------------------------------------------------------------------
-    # Laser callback
-    # ------------------------------------------------------------------
-
     def scan_callback(self, scan):
         min_dist = 99.0
         for i, r in enumerate(scan.ranges):
@@ -211,10 +199,6 @@ class FollowKnownCamera:
                 if 0.05 < r < min_dist:
                     min_dist = r
         self.front_min_distance = min_dist
-
-    # ------------------------------------------------------------------
-    # Motion helpers
-    # ------------------------------------------------------------------
 
     def hard_stop(self):
         self.target_twist = Twist()
@@ -235,10 +219,6 @@ class FollowKnownCamera:
 
     def limit(self, value, lo, hi):
         return max(min(value, hi), lo)
-
-    # ------------------------------------------------------------------
-    # Control timer — 10 Hz
-    # ------------------------------------------------------------------
 
     def control_timer(self, event):
 
@@ -288,10 +268,6 @@ class FollowKnownCamera:
         self.current_twist.linear.y = 0.0
         self.cmd_pub.publish(self.current_twist)
 
-    # ------------------------------------------------------------------
-    # Image callback — main logic
-    # ------------------------------------------------------------------
-
     def image_callback(self, msg):
         try:
             frame = self.bridge.imgmsg_to_cv2(msg, "bgr8")
@@ -307,10 +283,6 @@ class FollowKnownCamera:
             gray, scaleFactor=1.08, minNeighbors=3, minSize=(30, 30)
         )
 
-        # ==============================================================
-        # SEARCHING STATE
-        # Stay still. Check all faces. Confirm Viheet N times in a row.
-        # ==============================================================
         if self.state == "SEARCHING":
             self.target_visible = False
             self.target_twist = Twist()  # Stay still while searching
@@ -340,12 +312,6 @@ class FollowKnownCamera:
                     self.target_person))
             return
 
-        # ==============================================================
-        # FOLLOWING STATE
-        # FIX: Re-verify Viheet every single frame.
-        # Stranger in frame but not Viheet → stop, do NOT follow.
-        # No face at all → stop and wait (control_timer handles this).
-        # ==============================================================
         if self.state == "FOLLOWING":
 
             if len(faces) == 0:
