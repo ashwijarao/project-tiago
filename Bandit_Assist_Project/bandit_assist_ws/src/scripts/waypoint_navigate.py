@@ -71,3 +71,70 @@ def build_goal(x, y, yaw):
     goal.target_pose.pose.orientation.w = qw
 
     return goal
+
+
+# ---------------------------------------------------------------------------
+
+# Navigator node
+
+# ---------------------------------------------------------------------------
+
+class Navigator:
+
+    def __init__(self):
+
+        self.status_pub = rospy.Publisher(
+
+            "/tiago_delivery/status",
+
+            String,
+
+            queue_size=10
+
+        )
+
+        self.explain_pub = rospy.Publisher(
+
+            "/explain",
+
+            String,
+
+            queue_size=1
+
+        )
+
+        self.move_base = actionlib.SimpleActionClient(
+
+            "move_base",
+
+            MoveBaseAction
+
+        )
+
+        self.log("Waiting for move_base action server...")
+
+        self.move_base.wait_for_server()
+
+        self.log("move_base ready.")
+
+        self.log("Navigator ready. Publish waypoint name to /tiago_delivery/waypoint_command")
+
+        rospy.Subscriber(
+
+            "/tiago_delivery/waypoint_command",
+
+            String,
+
+            self.on_command
+
+        )
+
+    def log(self, text):
+
+        rospy.loginfo(text)
+
+        self.status_pub.publish(String(data=text))
+
+    def on_command(self, msg):
+
+        pass
