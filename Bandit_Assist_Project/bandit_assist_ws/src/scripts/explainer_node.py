@@ -57,3 +57,16 @@ LOCATIONS = {
     },
 
 }
+
+
+def build_motion_goal(motion_name):
+    
+    goal = PlayMotionGoal()
+
+    goal.motion_name = motion_name
+
+    goal.skip_planning = False
+
+    return goal
+
+
