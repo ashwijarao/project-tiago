@@ -1,0 +1,20 @@
+<launch>
+    <!-- Load safer local costmap settings into move_base local costmap namespace -->
+    <rosparam file="$(find tiago_delivery)/config/local_costmap_plugins_omni.yaml"
+              command="load"
+              ns="/move_base" />
+
+    <rosparam file="$(find tiago_delivery)/config/local_costmap_omni.yaml"
+              command="load"
+              ns="/move_base" />
+
+    <node pkg="tiago_delivery"
+          type="waypoint_navigate.py"
+          name="tiago_navigator"
+          output="screen" />
+
+    <node pkg="tiago_delivery"
+          type="explainer_node.py"
+          name="explainer_node"
+          output="screen" />
+</launch>
