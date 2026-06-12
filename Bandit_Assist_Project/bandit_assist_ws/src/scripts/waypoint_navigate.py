@@ -72,7 +72,6 @@ def build_goal(x, y, yaw):
 
     return goal
 
-
 # ---------------------------------------------------------------------------
 
 # Navigator node
@@ -136,5 +135,19 @@ class Navigator:
         self.status_pub.publish(String(data=text))
 
     def on_command(self, msg):
+
+        destination = msg.data.strip().lower()
+
+        if destination not in WAYPOINTS:
+
+            self.log("Unknown waypoint requested: {}".format(destination))
+
+            return
+
+        self.log("Command received: go to {}".format(destination))
+
+        self.navigate_to(destination)
+
+    def navigate_to(self, destination):
 
         pass
