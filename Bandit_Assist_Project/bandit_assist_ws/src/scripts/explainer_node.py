@@ -58,9 +58,8 @@ LOCATIONS = {
 
 }
 
-
 def build_motion_goal(motion_name):
-    
+
     goal = PlayMotionGoal()
 
     goal.motion_name = motion_name
@@ -70,7 +69,7 @@ def build_motion_goal(motion_name):
     return goal
 
 class Explainer:
-    
+
     def __init__(self):
 
         self.tts_pub = rospy.Publisher(
@@ -123,7 +122,78 @@ class Explainer:
 
         rospy.loginfo("Explainer node started.")
 
+    def say(self, text):
+
+        rospy.loginfo("Speaking: {}".format(text))
+
+        self.tts_pub.publish(String(data=text))
+
+    def play_motion(self, motion_name):
+
+        if not self.motion_available:
+
+            rospy.logwarn("Skipping motion: {}".format(motion_name))
+
+            return
+
+        goal = build_motion_goal(motion_name)
+
+        self.motion_client.send_goal_and_wait(goal)
+
     def on_arrival(self, msg):
 
-        pass
+        location = msg.data.strip().lower()
 
+        if location not in LOCATIONS:
+
+            rospy.loginfo(
+
+                "No speech or motion needed for location: {}".format(location)
+
+            )
+
+            return
+
+        script = LOCATIONS[location]["script"]
+
+        motion_name = LOCATIONS[location]["motion"]
+
+        rospy.loginfo(
+
+            "Arrived at {}. Speaking and moving arm.".format(location)
+
+        )
+
+        self.say(script)
+
+        rospy.sleep(1.0)
+
+        self.play_motion(motion_name)
+
+        rospy.sleep(1.0)
+
+        if location.startswith("collection_point"):
+
+            self.play_motion("home")
+
+            rospy.sleep(1.0)
+
+def main():
+
+    rospy.init_node("explainer_node")
+
+    Explainer()
+
+    rospy.loginfo("Explainer running. Waiting for arrival signals.")
+
+    rospy.spin()
+
+if __name__ == "__main__":
+
+    try:
+
+        main()
+
+    except rospy.ROSInterruptException:
+
+        pass
