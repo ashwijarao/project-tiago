@@ -1,0 +1,66 @@
+local_costmap:
+  update_frequency: 8.0
+  publish_frequency: 4.0
+  transform_tolerance: 1.0
+
+  rolling_window: true
+  width: 4.5
+  height: 4.5
+  resolution: 0.05
+
+  # TIAGo base safety footprint
+  footprint: [[0.35, 0.30], [0.35, -0.30], [-0.35, -0.30], [-0.35, 0.30]]
+
+  # Front laser obstacle detection
+  front_obstacle_laser_layer:
+    enabled: true
+    observation_sources: base_scan
+
+    base_scan:
+      topic: /scan_front_raw
+      data_type: LaserScan
+      marking: true
+      clearing: true
+      obstacle_range: 2.5
+      raytrace_range: 3.0
+      min_obstacle_height: 0.02
+      max_obstacle_height: 1.20
+
+  # Rear laser obstacle detection
+  rear_obstacle_laser_layer:
+    enabled: true
+    observation_sources: base_scan
+
+    base_scan:
+      topic: /scan_rear_raw
+      data_type: LaserScan
+      marking: true
+      clearing: true
+      obstacle_range: 2.5
+      raytrace_range: 3.0
+      min_obstacle_height: 0.02
+      max_obstacle_height: 1.20
+
+  # Depth camera obstacle layer for low/small objects
+  depth_obstacle_layer:
+    enabled: true
+    observation_sources: xtion_cloud
+
+    xtion_cloud:
+      topic: /xtion/depth_registered/points
+      data_type: PointCloud2
+      marking: true
+      clearing: true
+
+      # Use 0.05 or 0.08 to avoid detecting floor as obstacle
+      min_obstacle_height: 0.05
+      max_obstacle_height: 0.60
+
+      obstacle_range: 1.8
+      raytrace_range: 2.0
+
+  # Bigger safety bubble around detected obstacles
+  inflation_layer:
+    enabled: true
+    inflation_radius: 1.60
+    cost_scaling_factor: 1.0
