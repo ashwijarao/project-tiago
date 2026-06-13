@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 
+import math
 import rospy
 import actionlib
 import tf
 
+from sensor_msgs.msg import LaserScan
 from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal
 from std_msgs.msg import String
 
@@ -75,6 +77,16 @@ class Navigator:
             MoveBaseAction
         )
 
+        # ------------------------------------------------------------
+        # OBJECT DETECTION 
+        # -----------------------------------------------------------
+        self.scan_topic = rospy.get_param("~scan_topic", "/scan_front_raw")
+        self.safe_stop_distance = rospy.get_param("~safe_stop_distance", 0.6)
+        self.front_angle_window = rospy.get_param("~front_angle_window", 0.5)
+        self.object_close = False
+
+        rospy.Subscriber(self.scan_topic, LaserScan, self.scan_callback, queue_size=1)
+
         self.log("Waiting for move_base action server...")
         self.move_base.wait_for_server()
         self.log("move_base ready.")
@@ -90,6 +102,36 @@ class Navigator:
         rospy.loginfo(text)
         self.status_pub.publish(String(data=text))
 
+    def scan_callback(self, scan):
+        """
+        PLACEHOLDER object detection logic.
+
+        Checks the minimum laser range within a forward-facing angle
+        window. Sets self.object_close to True if something is closer
+        than self.safe_stop_distance.
+
+        TEAMMATE TODO: replace this body with real object detection
+        (camera/YOLO/etc). Just keep setting self.object_close to
+        True/False the same way.
+        """
+        min_dist = float("inf")
+
+        for i, r in enumerate(scan.ranges):
+            if math.isnan(r) or math.isinf(r):
+                continue
+            angle = scan.angle_min + i * scan.angle_increment
+            if abs(angle) <= self.front_angle_window:
+                if r < min_dist:
+                    min_dist = r
+
+        was_close = self.object_close
+        self.object_close = min_dist < self.safe_stop_distance
+
+        if self.object_close and not was_close:
+            self.log("Object detected close to robot (dist={:.2f}m)".format(min_dist))
+        elif was_close and not self.object_close:
+            self.log("Path clear - object no longer close")
+
     def on_command(self, msg):
         destination = msg.data.strip().lower()
 
@@ -104,6 +146,18 @@ class Navigator:
         x, y, yaw = WAYPOINTS[destination]
         goal = build_goal(x, y, yaw)
 
+        # OBJECT DETECTION: don't start moving if something is already
+        # blocking the path right in front of the robot.
+        if self.object_close:
+            self.log(
+                "Object detected near robot - waiting before sending goal to {}".format(
+                    destination
+                )
+            )
+            rate = rospy.Rate(2)
+            while self.object_close and not rospy.is_shutdown():
+                rate.sleep()
+
         self.log(
             "Sending goal: x={:.3f}, y={:.3f}, yaw={:.3f}".format(
                 x,
@@ -113,7 +167,32 @@ class Navigator:
         )
 
         self.move_base.send_goal(goal)
-        self.move_base.wait_for_result()
+
+        # ------------------------------------------------------------
+        # OBJECT DETECTION: poll for result while watching for close
+        # objects. If the path becomes blocked mid-navigation, cancel
+        # the goal, wait until clear, then resend the same goal.
+        # ------------------------------------------------------------
+        rate = rospy.Rate(5)
+        while not rospy.is_shutdown():
+            finished = self.move_base.wait_for_result(rospy.Duration(0.2))
+
+            if finished:
+                break
+
+            if self.object_close:
+                self.log(
+                    "Object detected during navigation to {} - cancelling goal.".format(
+                        destination
+                    )
+                )
+                self.move_base.cancel_goal()
+
+                while self.object_close and not rospy.is_shutdown():
+                    rate.sleep()
+
+                self.log("Path clear - resending goal to {}".format(destination))
+                self.move_base.send_goal(goal)
 
         state = self.move_base.get_state()
 
