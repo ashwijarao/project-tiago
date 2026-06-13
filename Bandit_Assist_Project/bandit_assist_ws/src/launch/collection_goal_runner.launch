@@ -6,11 +6,16 @@
 
     <param name="target_frame" value="map"/>
 
-    
+
     <param name="goal_x" value="0.0"/>
     <param name="goal_y" value="0.0"/>
     <param name="goal_yaw" value="0.0"/>
 
     <param name="timeout_seconds" value="120.0"/>
+
+    <!-- Object detection (placeholder, laser-based) -->
+    <param name="scan_topic" value="/scan_front_raw"/>
+    <param name="safe_stop_distance" value="0.6"/>
+    <param name="front_angle_window" value="0.5"/>
   </node>
 </launch>
