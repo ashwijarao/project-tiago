@@ -1,0 +1,58 @@
+cat > launch/follow_known_camera.launch <<'EOF'
+<launch>
+    <node pkg="tiago_delivery"
+          type="follow_known_camera.py"
+          name="follow_known_camera"
+          output="screen">
+
+        <param name="face_database_path"
+               value="/home/pal/Bandit_Assist/bandit_assist_ws/src/tiago_delivery/faces" />
+
+        <param name="image_topic" value="/xtion/rgb/image_raw" />
+        <param name="scan_topic" value="/scan_front_raw" />
+        <param name="cmd_vel_topic" value="/key_vel" />
+        <param name="tts_topic" value="/tts_web_command" />
+
+        <param name="target_person" value="Viheet" />
+
+        <!-- Recognition -->
+        <param name="match_threshold" value="60.0" />
+        <param name="required_confirmations" value="2" />
+
+        <!-- Face detection sensitivity -->
+        <!-- Lower scale_factor = finds faces more reliably (slower) -->
+        <!-- Lower min_neighbors = more sensitive (more false positives) -->
+        <!-- Lower min_face_size = finds smaller/farther faces -->
+        <param name="detection_scale_factor" value="1.05" />
+        <param name="detection_min_neighbors" value="2" />
+        <param name="detection_min_face_size" value="20" />
+
+        <!-- Movement -->
+        <param name="max_forward_speed" value="0.10" />
+        <param name="min_forward_speed" value="0.035" />
+        <param name="max_turn_speed" value="0.18" />
+
+        <!-- Change to -1.0 if robot turns opposite direction -->
+        <param name="turn_direction" value="1.0" />
+
+        <!-- Tracking -->
+        <param name="center_tolerance_px" value="200" />
+        <param name="dead_zone_px" value="35" />
+
+        <!-- Stop before hitting person -->
+        <param name="stop_face_height" value="130" />
+        <param name="move_face_height" value="95" />
+
+        <!-- Laser safety -->
+        <param name="safe_stop_distance" value="1.15" />
+        <param name="front_angle_window" value="0.50" />
+
+        <!-- Stop quickly when face lost -->
+        <param name="lost_timeout" value="0.35" />
+
+        <!-- Smooth but responsive -->
+        <param name="linear_smoothing" value="0.50" />
+        <param name="angular_smoothing" value="0.45" />
+    </node>
+</launch>
+EOF

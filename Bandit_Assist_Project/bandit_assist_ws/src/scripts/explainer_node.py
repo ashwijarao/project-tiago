@@ -12,20 +12,29 @@ LOCATIONS = {
         "script": "reached arena",
         "motion": "home",
     },
+
     "collection_point_1": {
-        "script": "hey mate i have reached collection location please hand over the bag",
+        "script": "hey i have reached collection location please hand over the bag",
         "motion": "wave",
     },
+
     "collection_point_2": {
-        "script": "hey mate i have reached collection location please hand over the bag",
+        "script": "hey i have reached collection location please hand over the bag",
         "motion": "wave",
     },
+
     "collection_point_3": {
-        "script": "hey mate i have reached collection location please hand over the bag",
+        "script": "hey i have reached collection location please hand over the bag",
         "motion": "wave",
     },
+
     "collection_point_4": {
-        "script": "hey mate i have reached collection location please hand over the bag",
+        "script": "hey i have reached collection location please hand over the bag",
+        "motion": "wave",
+    },
+
+    "collection_point_5": {
+        "script": "hey i have reached collection location please hand over the bag",
         "motion": "wave",
     },
 }
@@ -58,7 +67,9 @@ class Explainer:
             rospy.loginfo("play_motion ready.")
             self.motion_available = True
         else:
-            rospy.logwarn("play_motion not available. Speech will work, but arm motion will be skipped.")
+            rospy.logwarn(
+                "play_motion not available. Speech will work, but arm motion will be skipped."
+            )
             self.motion_available = False
 
         rospy.Subscriber(
@@ -85,13 +96,17 @@ class Explainer:
         location = msg.data.strip().lower()
 
         if location not in LOCATIONS:
-            rospy.loginfo("No speech or motion needed for location: {}".format(location))
+            rospy.loginfo(
+                "No speech or motion needed for location: {}".format(location)
+            )
             return
 
         script = LOCATIONS[location]["script"]
         motion_name = LOCATIONS[location]["motion"]
 
-        rospy.loginfo("Arrived at {}. Speaking and moving arm.".format(location))
+        rospy.loginfo(
+            "Arrived at {}. Speaking and moving arm.".format(location)
+        )
 
         self.say(script)
         rospy.sleep(1.0)

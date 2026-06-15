@@ -1,0 +1,26 @@
+<launch>
+    <!-- Load safer local costmap settings into move_base local costmap namespace -->
+    <rosparam file="$(find tiago_delivery)/config/local_costmap_plugins_omni.yaml"
+              command="load"
+              ns="/move_base" />
+
+    <rosparam file="$(find tiago_delivery)/config/local_costmap_omni.yaml"
+              command="load"
+              ns="/move_base" />
+
+    <node pkg="tiago_delivery"
+          type="waypoint_navigate.py"
+          name="tiago_navigator"
+          output="screen">
+
+        <!-- Object detection (placeholder, laser-based) -->
+        <param name="scan_topic" value="/scan_front_raw"/>
+        <param name="safe_stop_distance" value="0.6"/>
+        <param name="front_angle_window" value="0.5"/>
+    </node>
+
+    <node pkg="tiago_delivery"
+          type="explainer_node.py"
+          name="explainer_node"
+          output="screen" />
+</launch>
