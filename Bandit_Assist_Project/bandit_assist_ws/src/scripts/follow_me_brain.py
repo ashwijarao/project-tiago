@@ -18,13 +18,17 @@ class TiagoOnboardBrain:
 
         # ---- Configurations ----
         self.target_dist = 1.1       
-        self.laser_window = 0.45     
+        self.laser_window = 0.55  # Slightly wider window to handle turning radius safely   
         self.camera_fov_rad = 1.05   
 
-        self.kp_linear = 0.55
-        self.kp_angular = 1.4
+        self.kp_linear = 0.6
+        self.kp_angular = 1.5
         self.max_linear_vel = 0.45
         self.max_angular_vel = 0.75
+
+        # ---- Dynamic Tracking Thresholds ----
+        self.last_known_distance = self.target_dist
+        self.max_jump_distance = 0.4  # Maximum meters a target can physically move between frames (approx 30Hz)
 
         # ---- Load Face Detector & Custom Recognizer ----
         cascade_path = '/usr/share/opencv4/haarcascades/haarcascade_frontalface_default.xml'
@@ -44,10 +48,8 @@ class TiagoOnboardBrain:
         self.state = "IDLE_LOOKING_FOR_FACE"
         self.last_known_angle = 0.0
         self.lost_track_timer = None
-        
-        # New: Counter to prevent ghost background triggers
         self.consecutive_match_count = 0
-        self.required_frames = 5  # Face must be recognized for 5 straight frames
+        self.required_frames = 5
 
         # ---- Publishers & Subscribers ----
         self.cmd_vel_pub = rospy.Publisher('/mobile_base_controller/cmd_vel', Twist, queue_size=10)
@@ -89,8 +91,10 @@ class TiagoOnboardBrain:
 
         if self.state == "WAITING_FOR_VOICE_CMD":
             if "follow me" in spoken_text or "move" in spoken_text:
-                rospy.loginfo("Identity verified and voice authorized! Engaging LIDAR tracking...")
+                rospy.loginfo("Identity verified and voice authorized! Tracking physical profile...")
                 self.lost_track_timer = rospy.Time.now()
+                # Initialize starting distance tracker to whatever is right in front of us
+                self.last_known_distance = self.target_dist 
                 self.state = "FOLLOWING_LASER"
 
     def image_callback(self, data):
@@ -100,8 +104,6 @@ class TiagoOnboardBrain:
             cv_image = self.bridge.imgmsg_to_cv2(data, "bgr8")
             frame_width = cv_image.shape[1]
             gray = cv2.cvtColor(cv_image, cv2.COLOR_BGR2GRAY)
-            
-            # Left at (50, 50) so it still detects from a good distance
             faces = self.face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(50, 50))
 
             if len(faces) == 0:
@@ -113,16 +115,13 @@ class TiagoOnboardBrain:
             for (x, y, w, h) in faces:
                 face_roi = gray[y:y+h, x:x+w]
                 face_roi = cv2.resize(face_roi, (200, 200))
-                
                 label, confidence = self.recognizer.predict(face_roi)
                 
-                # STRICTER MATCHING: Lowered from 75 to 62. 
-                # (Remember: in LBPH, lower numbers mean a closer, more exact match)
-                if label == 1 and confidence < 62:
+                if label == 1 and confidence < 78:
                     matched_this_frame = True
                     self.consecutive_match_count += 1
                     
-                    rospy.loginfo_throttle(1, f"Analyzing target stream (Score: {round(confidence, 1)})... Stability: {self.consecutive_match_count}/{self.required_frames}")
+                    rospy.loginfo_throttle(1, f"Target detected! Stability: {self.consecutive_match_count}/{self.required_frames}")
                     
                     if self.consecutive_match_count >= self.required_frames:
                         face_center_x = x + (w / 2.0)
@@ -131,18 +130,13 @@ class TiagoOnboardBrain:
 
                         self.state = "WAITING_FOR_VOICE_CMD"
                         rospy.loginfo("==========================================================")
-                        rospy.loginfo(f" TARGET LOCK: Verified Authorized User Confirmed (Final Score: {round(confidence, 1)}).")
-                        rospy.loginfo("ACTION REQUIRED: Give the 'follow me' command to your laptop.")
+                        rospy.loginfo(f"🔒 TARGET LOCK CONFIRMED. Standing by for laptop voice trigger...")
                         rospy.loginfo("==========================================================")
                     break
-                else:
-                    # This will print the score of the rejected face so you can tune the threshold perfectly
-                    rospy.logwarn_throttle(2, f"Face rejected. Score: {round(confidence, 1)} (Must be under 55 to pass)")
             
             if not matched_this_frame:
                 self.consecutive_match_count = max(0, self.consecutive_match_count - 1)
-
-        except Exception as e:
+        except Exception:
             pass
 
     def laser_callback(self, data):
@@ -150,38 +144,55 @@ class TiagoOnboardBrain:
             return
 
         twist_cmd = Twist()
-        closest_range = float('inf')
-        closest_angle = 0.0
+        best_candidate_range = float('inf')
+        best_candidate_angle = 0.0
+        smallest_delta = float('inf')
         found_target = False
 
+        # Parse data streams into logical spatial clusters
         for i, r in enumerate(data.ranges):
             angle = data.angle_min + (i * data.angle_increment)
-            if r < 0.35 or r > 2.2 or math.isnan(r) or math.isinf(r):
+            
+            # Boundary checks for typical leg placement ranges
+            if r < 0.30 or r > 2.5 or math.isnan(r) or math.isinf(r):
                 continue
 
+            # Check if this raw laser vector falls within our tracking beam cone
             if abs(angle - self.last_known_angle) < self.laser_window:
-                if r < closest_range:
-                    closest_range = r
-                    closest_angle = angle
-                    found_target = True
+                # CONTINUITY FILTER: Check how close this distance matches our last frame position
+                distance_delta = abs(r - self.last_known_distance)
+                
+                if distance_delta < self.max_jump_distance:
+                    if distance_delta < smallest_delta:
+                        smallest_delta = distance_delta
+                        best_candidate_range = r
+                        best_candidate_angle = angle
+                        found_target = True
 
         if found_target:
-            self.last_known_angle = closest_angle
+            # Update history buffers so trackers morph relative to your steps
+            self.last_known_angle = best_candidate_angle
+            self.last_known_distance = best_candidate_range
             self.lost_track_timer = rospy.Time.now()
-            distance_error = closest_range - self.target_dist
-            angular_error = closest_angle
+
+            # Calculate actual navigation error vectors
+            distance_error = best_candidate_range - self.target_dist
+            angular_error = best_candidate_angle
 
             twist_cmd.linear.x = self.kp_linear * distance_error
             twist_cmd.angular.z = self.kp_angular * angular_error
 
-            if abs(distance_error) < 0.08:
+            # Dead-zone buffer to eliminate minor mechanical oscillation
+            if abs(distance_error) < 0.07:
                 twist_cmd.linear.x = 0.0
 
+            # Structural safety bounds
             twist_cmd.linear.x = np.clip(twist_cmd.linear.x, -0.15, self.max_linear_vel)
             twist_cmd.angular.z = np.clip(twist_cmd.angular.z, -self.max_angular_vel, self.max_angular_vel)
         else:
-            if (rospy.Time.now() - self.lost_track_timer).to_sec() > 4.0:
-                rospy.logwarn("Target lost tracks. Resetting to secure face look-out mode.")
+            # Drop control inputs if tracking breaks completely for more than 3.5 seconds
+            if (rospy.Time.now() - self.lost_track_timer).to_sec() > 3.5:
+                rospy.logwarn("Target vanished from history buffer. Resetting security perimeter...")
                 self.state = "IDLE_LOOKING_FOR_FACE"
                 self.consecutive_match_count = 0
 
