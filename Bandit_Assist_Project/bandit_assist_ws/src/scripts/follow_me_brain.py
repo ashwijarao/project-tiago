@@ -56,6 +56,9 @@ class TiagoOnboardBrain:
         self.image_sub = rospy.Subscriber("/xtion/rgb/image_raw", Image, self.image_callback)
         self.laser_sub = rospy.Subscriber("/scan", LaserScan, self.laser_callback)
         self.voice_pub = rospy.Publisher("/tiago_hri/voice_command", String, queue_size=10)
+        
+        # LINK TO NAVIGATION PIPELINE: Added publisher to automatically route TIAGo home
+        self.nav_cmd_pub = rospy.Publisher('/tiago_delivery/waypoint_command', String, queue_size=10)
 
         # Start Socket Server for Laptop Voice Connection
         self.server_thread = threading.Thread(target=self.run_socket_server, daemon=True)
@@ -83,8 +86,12 @@ class TiagoOnboardBrain:
         self.voice_pub.publish(String(data=spoken_text))
 
         if "stop" in spoken_text or "halt" in spoken_text:
-            rospy.logwarn("!!! EMERGENCY STOP RECEIVED !!! Locking brakes.")
+            rospy.logwarn("!!! EMERGENCY STOP RECEIVED !!! Locking brakes and routing Home.")
             self.cmd_vel_pub.publish(Twist()) 
+            
+            # COORDINATION HANDSHAKE: Publish "home" to send TIAGo back to base
+            self.nav_cmd_pub.publish(String(data="home"))
+            
             self.state = "IDLE_LOOKING_FOR_FACE" 
             self.consecutive_match_count = 0
             return
@@ -117,7 +124,7 @@ class TiagoOnboardBrain:
                 face_roi = cv2.resize(face_roi, (200, 200))
                 label, confidence = self.recognizer.predict(face_roi)
                 
-                if label == 1 and confidence < 78:
+                if label == 1 and confidence < 55:
                     matched_this_frame = True
                     self.consecutive_match_count += 1
                     
