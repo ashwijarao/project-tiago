@@ -19,14 +19,15 @@ def laptop_voice_bridge():
     while True:
         with mic as source:
             recognizer.adjust_for_ambient_noise(source, duration=0.5)
-            print("Listening for command (follow me / stop)...")
+            print("Listening for command (collection point / follow me / stop)...")
 
             try:
                 audio = recognizer.listen(source, timeout=None, phrase_time_limit=4)
                 text = recognizer.recognize_google(audio).lower()
                 print(f"Heard locally: '{text}'")
 
-                if any(k in text for k in ["follow me", "move", "tiago", "stop", "halt"]):
+                # UPDATED LIST: Added "collection" so new transit commands pass through
+                if any(k in text for k in ["follow me", "move", "tiago", "stop", "halt", "collection"]):
                     print(">> Valid token heard! Sending over network socket...")
                     
                     # Open a quick network connection to the robot, inject the text, and close it
