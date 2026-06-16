@@ -86,14 +86,19 @@ class TiagoOnboardBrain:
         self.voice_pub.publish(String(data=spoken_text))
 
         if "stop" in spoken_text or "halt" in spoken_text:
-            rospy.logwarn("!!! EMERGENCY STOP RECEIVED !!! Locking brakes and routing Home.")
-            self.cmd_vel_pub.publish(Twist()) 
+            rospy.logwarn("!!! EMERGENCY STOP RECEIVED !!! Locking brakes.")
+            self.cmd_vel_pub.publish(Twist()) # Stops the robot instantly
             
-            # COORDINATION HANDSHAKE: Publish "home" to send TIAGo back to base
-            self.nav_cmd_pub.publish(String(data="home"))
-            
+            # Reset state so it immediately stops trying to track you
             self.state = "IDLE_LOOKING_FOR_FACE" 
             self.consecutive_match_count = 0
+            
+            # --- NEW DELAY LOGIC ---
+            rospy.loginfo("Waiting 5 seconds before returning home...")
+            rospy.sleep(5)  # Pauses execution for 5 seconds
+            
+            rospy.loginfo("Routing Home now.")
+            self.nav_cmd_pub.publish(String(data="home"))
             return
 
         if self.state == "WAITING_FOR_VOICE_CMD":
