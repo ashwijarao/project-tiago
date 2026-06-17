@@ -1,0 +1,15 @@
+# Python deps for the bandit_assist nodes.
+# NOTE: rospy, cv_bridge and tf are provided by your ROS installation, not pip.
+
+# OpenCV WITH contrib modules (required for cv2.face, the LBPH recognizer).
+# Do not also install the plain opencv wheel; the two conflict.
+opencv-contrib-python>=4.5
+
+numpy>=1.19
+
+# Used by face_recognition_node.py (pulls in dlib; needs cmake and a compiler).
+face_recognition>=1.3
+
+# Voice nodes.
+SpeechRecognition>=3.8
+PyAudio>=0.2.11
